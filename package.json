@@ -1,0 +1,22 @@
+{
+  "name": "osm2obj",
+  "version": "1.0.0",
+  "description": "Convert OpenStreetMap data to a Wavefront OBJ model",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "osm",
+    "openstreetmap",
+    "wavefront",
+    "obj"
+  ],
+  "author": "Per Liedman <per@liedman.net>",
+  "license": "ISC",
+  "dependencies": {
+    "extend": "^3.0.0",
+    "local-proj": "^1.0.0",
+    "osmtogeojson": "^2.2.5"
+  }
+}
