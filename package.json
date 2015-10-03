@@ -17,6 +17,8 @@
   "dependencies": {
     "extend": "^3.0.0",
     "local-proj": "^1.0.0",
-    "osmtogeojson": "^2.2.5"
+    "osmtogeojson": "^2.2.5",
+    "turf-bbox-polygon": "^1.0.1",
+    "turf-extent": "^1.0.4"
   }
 }
