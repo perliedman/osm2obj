@@ -42,7 +42,10 @@ module.exports = function(osmData, stream, options) {
         metersPerLevel: 3,
         defaultHeight: 8,
         mtllib: 'data/default.mtl',
-        ground: true
+        ground: true,
+        featureName: function() {
+            return undefined;
+        },
     }, options);
 
     if (options.ground) {
@@ -78,9 +81,7 @@ module.exports = function(osmData, stream, options) {
                 return 0.2;
             }
         },
-        featureName: function(f) {
-            return f.properties.id;
-        },
+        featureName: options.featureName,
         featureMaterial: function(f) {
             var prop = f.properties;
             if (prop.building) {
