@@ -3,6 +3,8 @@ var extend = require('extend'),
     findLocalProj = require('local-proj').find,
     toObj = require('geojson2obj').toObj,
     extent = require('turf-extent'),
+    coordReduce = require('turf-meta').coordReduce,
+    async = require('async'),
     bboxPolygon = require('turf-bbox-polygon'),
     toMeters = (function() {
         var matchers = [
@@ -29,7 +31,7 @@ var extend = require('extend'),
         };
     })();
 
-module.exports = function(osmData, stream, options) {
+module.exports = function(osmData, stream, elevationProvider, cb, options) {
     var geojson = osmtogeojson(osmData, {
             flatProperties: true
         }),
@@ -43,8 +45,10 @@ module.exports = function(osmData, stream, options) {
         defaultHeight: 8,
         mtllib: 'data/default.mtl',
         ground: true,
-        featureName: function() {
-            return undefined;
+        featureName: function(f, cb) {
+            process.nextTick(function() {
+                cb(undefined, undefined);
+            });
         },
     }, options);
 
@@ -55,8 +59,29 @@ module.exports = function(osmData, stream, options) {
         geojson.features.push(ground);
     }
     
-    toObj(geojson, stream, {
-        featureHeight: function(f) {
+    toObj(geojson, stream, cb, {
+        featureBase: function(f, cb) {
+            var flatCoords = coordReduce(f, function(cs, c) {
+                    cs.push(c);
+                    return cs;
+                }, []);
+
+            async.reduce(flatCoords, Number.MAX_VALUE, function(min, c, cb) {
+                elevationProvider.getElevation([c[1], c[0]], function(err, elevation) {
+                    if (err) {
+                        cb(err);
+                        return;
+                    }
+
+                    cb(undefined, Math.min(min, elevation));
+                });
+            }, cb);
+
+            /*process.nextTick(function() {
+                cb(undefined, 0);
+            });*/
+        },
+        featureHeight: function(f, cb) {
             var prop = f.properties,
                 height = 0;
 
@@ -66,31 +91,44 @@ module.exports = function(osmData, stream, options) {
                 height = 0.1;
             }
 
-            return height;
+            process.nextTick(function() {
+                cb(undefined, height);
+            });
         },
-        lineWidth: function(f) {
+        lineWidth: function(f, cb) {
+            var width;
+
             switch (f.properties.highway) {
             case 'primary':
             case 'secondary':
             case 'trunk':
             case 'tertiary':
-                return 1;
+                width = 1;
             case 'residential':
-                return 0.75;
+                width = 0.75;
             default:
-                return 0.2;
-            }
-        },
-        featureName: options.featureName,
-        featureMaterial: function(f) {
-            var prop = f.properties;
-            if (prop.building) {
-                return 'building';
-            } else if (prop.highway) {
-                return 'highway';
+                width = 0.2;
             }
 
-            return prop['@osm2obj/material'];
+            process.nextTick(function() {
+                cb(undefined, width);
+            });
+        },
+        featureName: options.featureName,
+        featureMaterial: function(f, cb) {
+            var prop = f.properties,
+                material;
+            if (prop.building) {
+                material = 'building';
+            } else if (prop.highway) {
+                material = 'highway';
+            } else {
+                material = prop['@osm2obj/material'];
+            }
+
+            process.nextTick(function() {
+                cb(undefined, material);
+            });
         },
         coordToPoint: coordToPoint,
         mtllib: options.mtllib
