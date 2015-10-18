@@ -61,25 +61,28 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
     
     toObj(geojson, stream, cb, {
         featureBase: function(f, cb) {
-            var flatCoords = coordReduce(f, function(cs, c) {
-                    cs.push(c);
-                    return cs;
-                }, []);
+            if (elevationProvider) {
+                var flatCoords = coordReduce(f, function(cs, c) {
+                        cs.push(c);
+                        return cs;
+                    }, []);
 
-            async.reduce(flatCoords, Number.MAX_VALUE, function(min, c, cb) {
-                elevationProvider.getElevation([c[1], c[0]], function(err, elevation) {
-                    if (err) {
-                        cb(err);
-                        return;
-                    }
+                async.reduce(flatCoords, Number.MAX_VALUE, function(min, c, cb) {
+                    elevationProvider.getElevation([c[1], c[0]], function(err, elevation) {
+                        if (err) {
+                            cb(err);
+                            return;
+                        }
 
-                    cb(undefined, Math.min(min, elevation));
+                        cb(undefined, Math.min(min, elevation));
+                    });
+                }, cb);
+            } else {
+                setImmediate(function() {
+                    cb(undefined, 0);
                 });
-            }, cb);
+            }
 
-            /*process.nextTick(function() {
-                cb(undefined, 0);
-            });*/
         },
         featureHeight: function(f, cb) {
             var prop = f.properties,
