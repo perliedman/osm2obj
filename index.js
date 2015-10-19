@@ -35,7 +35,7 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
     var geojson = osmtogeojson(osmData, {
             flatProperties: true
         }),
-        projection = findLocalProj(geojson),
+        projection,
         coordToPoint = function(c) {
             return projection.forward(c);
         };
@@ -51,6 +51,8 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
             });
         },
     }, options);
+
+    projection = options.projection || findLocalProj(geojson);
 
     if (options.ground) {
         var ground = bboxPolygon(extent(geojson));
