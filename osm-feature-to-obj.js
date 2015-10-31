@@ -30,6 +30,8 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
     toObj(geojson, stream, cb, {
         vertexStartIndex: options.vertexStartIndex,
         featureBase: function(f, cb) {
+            var minHeight = toMeters(f.properties.min_height) || 0;
+
             if (elevationProvider) {
                 var flatCoords = coordReduce(f, function(cs, c) {
                         cs.push(c);
@@ -43,12 +45,12 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                             return;
                         }
 
-                        cb(undefined, Math.min(min, elevation));
+                        cb(undefined, Math.min(min, minHeight + elevation));
                     });
                 }, cb);
             } else {
                 setImmediate(function() {
-                    cb(undefined, 0);
+                    cb(undefined, minHeight);
                 });
             }
 
@@ -58,7 +60,9 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                 height = 0;
 
             if (prop.building) {
-                height = toMeters(prop.height) || (prop.levels ? prop.levels * options.metersPerLevel : options.defaultHeight);
+                height =
+                    (toMeters(prop.height) || (prop.levels ? prop.levels * options.metersPerLevel : options.defaultHeight)) -
+                    (toMeters(prop.min_height) || 0);
             } else if (prop.highway) {
                 height = 0.1;
             }
