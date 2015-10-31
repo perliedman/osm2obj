@@ -1,11 +1,9 @@
 #!/usr/bin/node
 
 var osm2obj = require('./'),
-    fs = require('fs'),
     TileSet = require('node-hgt').TileSet,
     proj4 = require('proj4'),
     argv = require('minimist')(process.argv.slice(2)),
-    osmdata = JSON.parse(fs.readFileSync(argv._[0])),
     elevationProvider,
     options;
 
@@ -18,8 +16,11 @@ options = {
     projection: argv.projection ? proj4(proj4.WGS84, argv.projection) : undefined
 };
 
-osm2obj(osmdata, process.stdout, elevationProvider, function(err) {
+osm2obj(argv._[0], process.stdout, elevationProvider, function(err, featureCount) {
     if (err) {
         process.stderr.write(err + '\n\n');
+        return;
     }
+
+    process.stderr.write('Wrote ' + featureCount + ' features.\n\n');
 }, options);
