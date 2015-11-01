@@ -3,7 +3,19 @@ var extend = require('extend'),
     findLocalProj = require('local-proj').find,
     async = require('async'),
     bboxPolygon = require('turf-bbox-polygon'),
-    osmFeatureToObj = require('./osm-feature-to-obj');
+    osmFeatureToObj = require('./osm-feature-to-obj'),
+    addElevation = require('geojson-elevation').addElevation,
+    isClockwise = function(vertices) {
+        var area = 0,
+            i,
+            j;
+        for (i = 0; i < vertices.length; i++) {
+            j = (i + 1) % vertices.length;
+            area += vertices[i].x * vertices[j].y;
+            area -= vertices[j].x * vertices[i].y;
+        }
+        return area > 0;
+    };
 
 module.exports = function(osmData, stream, elevationProvider, cb, options) {
     var reader = new osmium.BasicReader(osmData),
@@ -14,7 +26,7 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
         extent = [bound.left(),bound.bottom(),bound.right(),bound.top()],
         extentPolygon = bboxPolygon(extent),
         featureCount = 0,
-        projection,
+        projection = options.projection || findLocalProj(extentPolygon),
         workqueue;
 
     options = extend({
@@ -27,12 +39,9 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
                 cb(undefined, undefined);
             });
         },
-        coordToPoint: function(c) {
-            return projection.forward(c);
-        }
+        projection: projection
     }, options);
 
-    projection = options.projection || findLocalProj(extentPolygon);
     workqueue = async.queue(function(geojson, callback) {
         osmFeatureToObj(geojson, stream, elevationProvider, function(err, numberVertices) {
             if (err) {
@@ -58,16 +67,32 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
 
         if (building) {
             geojson.type = 'Polygon';
+            geojson.coordinates.forEach(function(ring) {
+                if (isClockwise(ring)) {
+                    ring.reverse();
+                }
+            });
             geojson.coordinates = [geojson.coordinates];
         }
 
         var feature = {
-            type: 'Feature',
-            geometry: geojson,
-            properties: way.tags()
-        };
+                type: 'Feature',
+                geometry: geojson,
+                properties: way.tags()
+            },
+            pushWork = function(err) {
+                if (err) {
+                    cb(err);
+                    return;
+                }
+                workqueue.push(feature);
+            };
 
-        workqueue.push(feature);
+        if (highway) {
+            addElevation(geojson, elevationProvider, pushWork);
+        } else {
+            pushWork();
+        }
         featureCount++;
     });
 

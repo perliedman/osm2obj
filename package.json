@@ -17,8 +17,9 @@
   "dependencies": {
     "async": "^1.4.2",
     "extend": "^3.0.0",
+    "geojson-elevation": "^1.1.0",
     "geojson2obj": "^2.0.1",
-    "local-proj": "^1.0.0",
+    "local-proj": "^2.0.0",
     "minimist": "^1.2.0",
     "node-hgt": "^1.1.2",
     "osmium": "^0.4.2",

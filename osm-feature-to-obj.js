@@ -109,6 +109,6 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                 cb(undefined, material);
             });
         },
-        coordToPoint: options.coordToPoint
+        projection: options.projection
     });
 };
