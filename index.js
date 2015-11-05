@@ -4,7 +4,7 @@ var extend = require('extend'),
     async = require('async'),
     bboxPolygon = require('turf-bbox-polygon'),
     osmFeatureToObj = require('./osm-feature-to-obj'),
-    addElevation = require('geojson-elevation').addElevation,
+    tileSet = require('./tile-set'),
     isClockwise = function(vertices) {
         var area = 0,
             i,
@@ -19,7 +19,7 @@ var extend = require('extend'),
     progress = (function() {
         var pad = function(s, l) {
             return s + (new Array(l - s.length).join(' '));
-        }
+        };
 
         if (process.stderr.isTTY) {
             return function(status) {
@@ -67,6 +67,7 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
         statusUpdateTimer = setInterval(function() {
             progress(status);
         }, 250),
+        tile,
         workqueue;
 
     options = extend({
@@ -83,7 +84,7 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
     }, options);
 
     workqueue = async.queue(function(geojson, callback) {
-        osmFeatureToObj(geojson, stream, elevationProvider, function(err, numberVertices) {
+        osmFeatureToObj(geojson, stream, tile, function(err, numberVertices) {
             if (err) {
                 callback(err);
                 return;
@@ -134,28 +135,48 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
 
         status.remaining++;
         if (highway) {
-            addElevation(geojson, elevationProvider, pushWork);
-        } else {
-            pushWork();
+            if (feature.geometry.coordinates.length < 2) {
+                return;
+            }
+
+            geojson.coordinates.forEach(function(c) {
+                c[2] = tile.getElevation([c[1], c[0]]);
+            });
         }
+
+        pushWork();
     });
 
     workqueue.drain = function() {
         cleanUp(undefined, status);
     };
 
-    reader = new osmium.Reader(osmData);
-    var readAll = function() {
-        var buffer = reader.read();
-        if (buffer) {
-            osmium.apply(buffer, locHandler, handler);
-            setImmediate(readAll);
-        } else {
-            handler.end();
-            reader.close();
-        }
+    var loadTile = function(ll, cb) {
+        elevationProvider.options.loadTile.call(
+            elevationProvider,
+            elevationProvider._tileDir,
+            {lat: ll[0], lng: ll[1]},
+            cb);
     };
 
-    readAll();
-};
+    tileSet(loadTile, extent, 1, function(err, t) {
+        if (err) {
+            return cleanUp(err);
+        }
 
+        tile = t;
+        reader = new osmium.Reader(osmData);
+        var readAll = function() {
+            var buffer = reader.read();
+            if (buffer) {
+                osmium.apply(buffer, locHandler, handler);
+                setImmediate(readAll);
+            } else {
+                handler.end();
+                reader.close();
+            }
+        };
+
+        readAll();
+    });
+};

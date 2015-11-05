@@ -30,7 +30,8 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
     toObj(geojson, stream, cb, {
         vertexStartIndex: options.vertexStartIndex,
         featureBase: function(f, cb) {
-            var minHeight = toMeters(f.properties.min_height) || 0;
+            var minHeight = toMeters(f.properties.min_height) || 0,
+                minElevation = 0;
 
             if (elevationProvider) {
                 var flatCoords = coordReduce(f, function(cs, c) {
@@ -38,22 +39,13 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                         return cs;
                     }, []);
 
-                async.reduce(flatCoords, Number.MAX_VALUE, function(min, c, cb) {
-                    elevationProvider.getElevation([c[1], c[0]], function(err, elevation) {
-                        if (err) {
-                            cb(err);
-                            return;
-                        }
-
-                        cb(undefined, Math.min(min, minHeight + elevation));
-                    });
-                }, cb);
-            } else {
-                setImmediate(function() {
-                    cb(undefined, minHeight);
-                });
+                minElevation = flatCoords.reduce(function(min, c) {
+                    var elevation = elevationProvider.getElevation([c[1], c[0]]);
+                    return Math.min(min, elevation);
+                }, Number.MAX_VALUE);
             }
 
+            cb(undefined, minHeight + minElevation);
         },
         featureHeight: function(f, cb) {
             var prop = f.properties,
