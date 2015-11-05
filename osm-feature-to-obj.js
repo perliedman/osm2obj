@@ -67,7 +67,7 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                 height = 0.1;
             }
 
-            process.nextTick(function() {
+            setImmediate(function() {
                 cb(undefined, height);
             });
         },
@@ -89,7 +89,7 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                 break;
             }
 
-            process.nextTick(function() {
+            setImmediate(function() {
                 cb(undefined, width);
             });
         },
@@ -105,7 +105,7 @@ module.exports = function(geojson, stream, elevationProvider, cb, options) {
                 material = prop['@osm2obj/material'];
             }
 
-            process.nextTick(function() {
+            setImmediate(function() {
                 cb(undefined, material);
             });
         },

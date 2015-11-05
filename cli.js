@@ -16,11 +16,11 @@ options = {
     projection: argv.projection ? proj4(proj4.WGS84, argv.projection) : undefined
 };
 
-osm2obj(argv._[0], process.stdout, elevationProvider, function(err, featureCount) {
+osm2obj(argv._[0], process.stdout, elevationProvider, function(err, status) {
     if (err) {
         process.stderr.write(err + '\n\n');
         return;
     }
 
-    process.stderr.write('Wrote ' + featureCount + ' features.\n\n');
+    process.stderr.write('Wrote ' + status.highways + ' highways and ' + status.buildings + ' buildings.\n\n');
 }, options);

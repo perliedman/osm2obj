@@ -15,18 +15,58 @@ var extend = require('extend'),
             area -= vertices[j].x * vertices[i].y;
         }
         return area > 0;
-    };
+    },
+    progress = (function() {
+        var pad = function(s, l) {
+            return s + (new Array(l - s.length).join(' '));
+        }
+
+        if (process.stderr.isTTY) {
+            return function(status) {
+                var spinner = '|/-\\|/-\\';
+                var s = process.stderr,
+                    highways = status.highways + ' highways,',
+                    buildings = status.buildings + ' buildings,',
+                    processing = status.remaining + ' to process',
+                    msg = spinner[status.spinner++ % spinner.length] +
+                        ' ' + pad(highways, 24) +
+                        pad(buildings, 24) +
+                        processing;
+                s.cursorTo(0);
+                s.write(msg);
+                s.clearLine(1);
+            };
+        } else {
+            process.stderr.write('stderr is not a TTY.\n');
+        }
+    })();
 
 module.exports = function(osmData, stream, elevationProvider, cb, options) {
-    var reader = new osmium.BasicReader(osmData),
+    var reader = new osmium.BasicReader(osmData, {way:true}),
         handler = new osmium.Handler(),
         locHandler = new osmium.LocationHandler(),
         header = reader.header(),
         bound = header.bounds[0],
         extent = [bound.left(),bound.bottom(),bound.right(),bound.top()],
         extentPolygon = bboxPolygon(extent),
-        featureCount = 0,
         projection = options.projection || findLocalProj(extentPolygon),
+        cleanUp = function(err, result) {
+            clearTimeout(statusUpdateTimer);
+            if (process.stderr.isTTY) {
+                process.stderr.cursorTo(0);
+                process.stderr.clearLine(1);
+            }
+            cb(err, result);
+        },
+        status = {
+            spinner: 0,
+            highways: 0,
+            buildings: 0,
+            remaining: 0
+        },
+        statusUpdateTimer = setInterval(function() {
+            progress(status);
+        }, 250),
         workqueue;
 
     options = extend({
@@ -50,6 +90,7 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
             }
 
             options.vertexStartIndex = numberVertices;
+            status.remaining--;
             callback();
         }, options);
     });
@@ -73,6 +114,9 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
                 }
             });
             geojson.coordinates = [geojson.coordinates];
+            status.buildings++;
+        } else {
+            status.highways++;
         }
 
         var feature = {
@@ -82,29 +126,36 @@ module.exports = function(osmData, stream, elevationProvider, cb, options) {
             },
             pushWork = function(err) {
                 if (err) {
-                    cb(err);
-                    return;
+                    status.remaining--;
+                    return cleanUp(err);
                 }
                 workqueue.push(feature);
             };
 
+        status.remaining++;
         if (highway) {
             addElevation(geojson, elevationProvider, pushWork);
         } else {
             pushWork();
         }
-        featureCount++;
     });
 
-    handler.on('done', function() {
-        workqueue.drain = function() {
-            cb(undefined, featureCount);
-        };
-    });
+    workqueue.drain = function() {
+        cleanUp(undefined, status);
+    };
 
     reader = new osmium.Reader(osmData);
-    osmium.apply(reader, locHandler, handler);
-    handler.end();
-    reader.close();
+    var readAll = function() {
+        var buffer = reader.read();
+        if (buffer) {
+            osmium.apply(buffer, locHandler, handler);
+            setImmediate(readAll);
+        } else {
+            handler.end();
+            reader.close();
+        }
+    };
+
+    readAll();
 };
 
