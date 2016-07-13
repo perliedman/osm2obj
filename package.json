@@ -15,7 +15,7 @@
   "author": "Per Liedman <per@liedman.net>",
   "license": "ISC",
   "dependencies": {
-    "async": "^1.4.2",
+    "async": "^2.0.0",
     "extend": "^3.0.0",
     "geojson-elevation": "^1.1.0",
     "geojson2obj": "^2.0.1",
