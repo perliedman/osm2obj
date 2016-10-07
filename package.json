@@ -21,7 +21,7 @@
     "geojson2obj": "^2.0.1",
     "local-proj": "^2.0.0",
     "minimist": "^1.2.0",
-    "node-hgt": "^1.1.2",
+    "node-hgt": "^1.2.1",
     "osmium": "^0.5.3",
     "osmtogeojson": "^2.2.12",
     "proj4": "^2.3.15",
